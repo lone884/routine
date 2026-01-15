@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>朝のルーティーントラッカー</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .tabs {
+            display: flex;
+            background: #f5f5f5;
+            border-bottom: 2px solid #ddd;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            background: #f5f5f5;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            background: white;
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .tab:hover {
+            background: #e8e8e8;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        /* 設定画面 */
+        .routine-item {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .routine-item:hover {
+            background: #f0f0f0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .routine-item.dragging {
+            opacity: 0.5;
+            transform: scale(0.98);
+        }
+
+        .move-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .move-btn {
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .move-btn:hover {
+            background: #5568d3;
+        }
+
+        .move-btn:active {
+            transform: scale(0.95);
+        }
+
+        .move-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .drag-handle {
+            font-size: 20px;
+            color: #999;
+            cursor: move;
+            user-select: none;
+            display: none; /* PCではドラッグを非表示にしてボタンを使用 */
+        }
+
+        .routine-item input[type="text"] {
+            flex: 3;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+
+        .routine-item input[type="number"] {
+            width: 80px;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .time-unit {
+            font-size: 16px;
+            color: #666;
+            white-space: nowrap;
+        }
+
+        .routine-item .delete-btn {
+            padding: 8px 16px;
+            background: #ff4757;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .routine-item .delete-btn:hover {
+            background: #ff3838;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #48dbfb;
+        }
+
+        .btn-secondary:hover {
+            background: #2bcbf5;
+        }
+
+        /* 実行画面 */
+        .timer-display {
+            text-align: center;
+            margin: 40px 0;
+        }
+
+        .current-task {
+            font-size: 32px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .timer {
+            font-size: 72px;
+            font-weight: 700;
+            color: #667eea;
+            font-family: 'Courier New', monospace;
+            margin: 30px 0;
+        }
+
+        .timer.overtime {
+            color: #ff4757;
+        }
+
+        .target-time {
+            font-size: 20px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .progress-info {
+            font-size: 18px;
+            color: #888;
+            margin-top: 20px;
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+
+        .btn-large {
+            padding: 20px 40px;
+            font-size: 20px;
+        }
+
+        .btn-success {
+            background: #26de81;
+        }
+
+        .btn-success:hover {
+            background: #20bf6b;
+        }
+
+        /* 記録画面 */
+        .history-item {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .history-date {
+            font-size: 18px;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .history-tasks {
+            display: grid;
+            gap: 10px;
+        }
+
+        .history-task {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+        }
+
+        .task-name {
+            font-weight: 600;
+        }
+
+        .task-time {
+            color: #666;
+        }
+
+        .task-time.overtime {
+            color: #ff4757;
+            font-weight: 600;
+        }
+
+        /* 統計画面 */
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .stats-table th,
+        .stats-table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .stats-table th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+
+        .stats-table tr:hover {
+            background: #f5f5f5;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            font-size: 18px;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                border-radius: 0;
+            }
+
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .timer {
+                font-size: 56px;
+            }
+
+            .current-task {
+                font-size: 24px;
+            }
+
+            .control-buttons {
+                flex-direction: column;
+            }
+
+            .routine-item {
+                flex-wrap: wrap;
+                gap: 8px;
+                padding: 12px;
+            }
+
+            .move-buttons {
+                order: 1;
+                flex-direction: row;
+                gap: 4px;
+            }
+
+            .move-btn {
+                width: 36px;
+                height: 36px;
+            }
+
+            .routine-item input[type="text"] {
+                flex: 1 1 100%;
+                order: 2;
+            }
+
+            .routine-item input[type="number"] {
+                order: 3;
+                width: 70px;
+            }
+
+            .time-unit {
+                order: 4;
+            }
+
+            .routine-item .delete-btn {
+                order: 5;
+                margin-left: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>☀️ 朝のルーティーントラッカー</h1>
+            <p>毎日の習慣を記録して、理想の朝を手に入れよう</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('setup')">設定</button>
+            <button class="tab" onclick="showTab('run')">実行</button>
+            <button class="tab" onclick="showTab('history')">記録</button>
+            <button class="tab" onclick="showTab('stats')">統計</button>
+        </div>
+
+        <div class="content">
+            <!-- 設定画面 -->
+            <div id="setup" class="section active">
+                <h2 style="margin-bottom: 20px;">ルーティーンを設定</h2>
+                <div id="routine-list"></div>
+                <button class="btn btn-secondary" onclick="addRoutineItem()">+ タスクを追加</button>
+                <button class="btn" onclick="saveRoutine()">保存</button>
+            </div>
+
+            <!-- 実行画面 -->
+            <div id="run" class="section">
+                <div id="run-content">
+                    <div class="no-data">
+                        <p>ルーティーンを設定してから開始してください</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 記録画面 -->
+            <div id="history" class="section">
+                <h2 style="margin-bottom: 20px;">実行履歴（直近5回）</h2>
+                <div id="history-list"></div>
+            </div>
+
+            <!-- 統計画面 -->
+            <div id="stats" class="section">
+                <h2 style="margin-bottom: 20px;">タスク別統計</h2>
+                <div id="stats-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let routine = [];
+        let currentTaskIndex = 0;
+        let startTime = null;
+        let timerInterval = null;
+        let isRunning = false;
+        let currentSessionData = [];
+        let hasPlayedSound = false; // 音を1回だけ再生するためのフラグ
+        let alarmInterval = null; // アラーム用のインターバル
+        let isAlarmPlaying = false; // アラームが鳴っているかのフラグ
+
+        // 通知音を作成（Web Audio API使用）
+        function playNotificationSound() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.value = 800; // 周波数
+            oscillator.type = 'sine'; // 波形
+
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.3);
+        }
+
+        // アラームを開始（繰り返し音を鳴らす）
+        function startAlarm() {
+            if (isAlarmPlaying) return;
+            
+            isAlarmPlaying = true;
+            playNotificationSound();
+            
+            alarmInterval = setInterval(() => {
+                playNotificationSound();
+            }, 1000); // 1秒ごとに音を鳴らす
+        }
+
+        // アラームを停止
+        function stopAlarm() {
+            if (alarmInterval) {
+                clearInterval(alarmInterval);
+                alarmInterval = null;
+            }
+            isAlarmPlaying = false;
+        }
+
+        // 初期化
+        function init() {
+            loadRoutine();
+            renderRoutineList();
+            renderHistory();
+            renderStats();
+        }
+
+        // タブ切り替え
+        function showTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.section').forEach(section => section.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+
+            if (tabName === 'history') {
+                renderHistory();
+            } else if (tabName === 'stats') {
+                renderStats();
+            }
+        }
+
+        // ルーティーンリストをレンダリング
+        function renderRoutineList() {
+            const list = document.getElementById('routine-list');
+            list.innerHTML = '';
+
+            routine.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'routine-item';
+                div.dataset.index = index;
+                
+                const isFirst = index === 0;
+                const isLast = index === routine.length - 1;
+                
+                div.innerHTML = `
+                    <div class="move-buttons">
+                        <button class="move-btn" onclick="moveItemUp(${index})" ${isFirst ? 'disabled' : ''}>▲</button>
+                        <button class="move-btn" onclick="moveItemDown(${index})" ${isLast ? 'disabled' : ''}>▼</button>
+                    </div>
+                    <input type="text" value="${item.name}" onchange="updateRoutineItem(${index}, 'name', this.value)" placeholder="タスク名（例：洗顔）">
+                    <input type="number" value="${item.targetMinutes}" onchange="updateRoutineItem(${index}, 'targetMinutes', this.value)" min="1" max="999">
+                    <span class="time-unit">分</span>
+                    <button class="delete-btn" onclick="removeRoutineItem(${index})">削除</button>
+                `;
+                
+                list.appendChild(div);
+            });
+
+            if (routine.length === 0) {
+                addRoutineItem();
+            }
+        }
+
+        // アイテムを上に移動
+        function moveItemUp(index) {
+            if (index > 0) {
+                const item = routine[index];
+                routine[index] = routine[index - 1];
+                routine[index - 1] = item;
+                renderRoutineList();
+            }
+        }
+
+        // アイテムを下に移動
+        function moveItemDown(index) {
+            if (index < routine.length - 1) {
+                const item = routine[index];
+                routine[index] = routine[index + 1];
+                routine[index + 1] = item;
+                renderRoutineList();
+            }
+        }
+
+        // ルーティーンアイテムを追加
+        function addRoutineItem() {
+            routine.push({ name: '', targetMinutes: 5 });
+            renderRoutineList();
+        }
+
+        // ルーティーンアイテムを更新
+        function updateRoutineItem(index, field, value) {
+            if (field === 'targetMinutes') {
+                value = parseInt(value) || 5;
+            }
+            routine[index][field] = value;
+        }
+
+        // ルーティーンアイテムを削除
+        function removeRoutineItem(index) {
+            routine.splice(index, 1);
+            renderRoutineList();
+        }
+
+        // ルーティーンを保存
+        function saveRoutine() {
+            const validRoutine = routine.filter(item => item.name.trim() !== '');
+            if (validRoutine.length === 0) {
+                alert('少なくとも1つのタスクを追加してください');
+                return;
+            }
+            routine = validRoutine;
+            localStorage.setItem('routine', JSON.stringify(routine));
+            alert('保存しました！');
+            updateRunSection();
+        }
+
+        // ルーティーンを読み込み
+        function loadRoutine() {
+            const saved = localStorage.getItem('routine');
+            if (saved) {
+                routine = JSON.parse(saved);
+            } else {
+                routine = [
+                    { name: 'うがい、洗顔', targetMinutes: 5 },
+                    { name: 'サイリウム&バナナ&朝食準備', targetMinutes: 10 },
+                    { name: '朝食', targetMinutes: 15 },
+                    { name: '歯磨き', targetMinutes: 5 },
+                    { name: '筋トレ', targetMinutes: 5 },
+                    { name: '昼食準備&洗い物', targetMinutes: 10 },
+                    { name: '髭剃り&コールドシャワー', targetMinutes: 5 },
+                    { name: '着替え', targetMinutes: 15 }
+                ];
+            }
+        }
+
+        // 実行セクションを更新
+        function updateRunSection() {
+            const runContent = document.getElementById('run-content');
+            
+            if (routine.length === 0) {
+                runContent.innerHTML = '<div class="no-data"><p>ルーティーンを設定してから開始してください</p></div>';
+                return;
+            }
+
+            if (!isRunning) {
+                runContent.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <h2>準備完了！</h2>
+                        <p style="margin: 20px 0; font-size: 18px; color: #666;">
+                            ${routine.length}個のタスクが設定されています
+                        </p>
+                        <button class="btn btn-large" onclick="startRoutine()">ルーティーン開始</button>
+                    </div>
+                `;
+            }
+        }
+
+        // ルーティーン開始
+        function startRoutine() {
+            currentTaskIndex = 0;
+            currentSessionData = [];
+            isRunning = true;
+            startTask();
+        }
+
+        // タスク開始
+        function startTask() {
+            if (currentTaskIndex >= routine.length) {
+                finishRoutine();
+                return;
+            }
+
+            const task = routine[currentTaskIndex];
+            startTime = Date.now();
+            hasPlayedSound = false; // 新しいタスクで音再生フラグをリセット
+            
+            const runContent = document.getElementById('run-content');
+            runContent.innerHTML = `
+                <div class="timer-display">
+                    <div class="current-task">${task.name}</div>
+                    <div class="target-time">目標時間: ${task.targetMinutes}分</div>
+                    <div class="timer" id="timer">00:00</div>
+                    <div class="progress-info">${currentTaskIndex + 1} / ${routine.length}</div>
+                    <div class="control-buttons">
+                        <button class="btn btn-large btn-success" onclick="nextTask()">次へ</button>
+                        <button class="btn btn-large" style="background: #ff4757;" onclick="cancelRoutine()">中止</button>
+                    </div>
+                </div>
+            `;
+
+            startTimer();
+        }
+
+        // タイマー開始
+        function startTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+
+            timerInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const seconds = Math.floor(elapsed / 1000);
+                const minutes = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                
+                const timerElement = document.getElementById('timer');
+                if (timerElement) {
+                    timerElement.textContent = `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                    
+                    const task = routine[currentTaskIndex];
+                    const targetSeconds = task.targetMinutes * 60;
+                    
+                    // 目標時間に達したら
+                    if (seconds >= targetSeconds) {
+                        timerElement.classList.add('overtime');
+                        
+                        // 目標時間ちょうどに達した時にアラームを開始（1回のみ）
+                        if (seconds === targetSeconds && !hasPlayedSound) {
+                            startAlarm();
+                            hasPlayedSound = true;
+                            showStopAlarmButton();
+                        }
+                    }
+                }
+            }, 100);
+        }
+
+        // アラーム停止ボタンを表示
+        function showStopAlarmButton() {
+            const controlButtons = document.querySelector('.control-buttons');
+            if (controlButtons && !document.getElementById('stop-alarm-btn')) {
+                const stopButton = document.createElement('button');
+                stopButton.id = 'stop-alarm-btn';
+                stopButton.className = 'btn btn-large';
+                stopButton.style.background = '#ffa502';
+                stopButton.textContent = '🔔 音を止める';
+                stopButton.onclick = function() {
+                    stopAlarm();
+                    this.remove();
+                };
+                controlButtons.insertBefore(stopButton, controlButtons.firstChild);
+            }
+        }
+
+        // 次のタスクへ
+        function nextTask() {
+            stopAlarm(); // アラームを停止
+            
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+
+            const elapsed = Date.now() - startTime;
+            const task = routine[currentTaskIndex];
+            
+            currentSessionData.push({
+                name: task.name,
+                targetMinutes: task.targetMinutes,
+                actualSeconds: Math.floor(elapsed / 1000)
+            });
+
+            currentTaskIndex++;
+            startTask();
+        }
+
+        // ルーティーン完了
+        function finishRoutine() {
+            stopAlarm(); // アラームを停止
+            
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+
+            isRunning = false;
+            saveHistory(currentSessionData);
+
+            const runContent = document.getElementById('run-content');
+            const totalSeconds = currentSessionData.reduce((sum, task) => sum + task.actualSeconds, 0);
+            const totalMinutes = Math.floor(totalSeconds / 60);
+            const totalSecs = totalSeconds % 60;
+
+            runContent.innerHTML = `
+                <div style="text-align: center; padding: 40px;">
+                    <h2 style="color: #26de81; font-size: 36px;">🎉 完了！</h2>
+                    <p style="margin: 20px 0; font-size: 24px;">
+                        合計時間: ${totalMinutes}分${totalSecs}秒
+                    </p>
+                    <button class="btn btn-large" onclick="updateRunSection(); showTab('history')">記録を見る</button>
+                    <button class="btn btn-large btn-secondary" onclick="startRoutine()">もう一度実行</button>
+                </div>
+            `;
+        }
+
+        // ルーティーン中止
+        function cancelRoutine() {
+            if (confirm('本当に中止しますか？')) {
+                stopAlarm(); // アラームを停止
+                
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                }
+                
+                isRunning = false;
+                currentSessionData = [];
+                currentTaskIndex = 0;
+                updateRunSection();
+            }
+        }
+
+        // 履歴を保存
+        function saveHistory(sessionData) {
+            let history = JSON.parse(localStorage.getItem('history') || '[]');
+            
+            history.unshift({
+                date: new Date().toISOString(),
+                tasks: sessionData
+            });
+
+            // 直近5回のみ保存
+            history = history.slice(0, 5);
+            localStorage.setItem('history', JSON.stringify(history));
+        }
+
+        // 履歴を表示
+        function renderHistory() {
+            const historyList = document.getElementById('history-list');
+            const history = JSON.parse(localStorage.getItem('history') || '[]');
+
+            if (history.length === 0) {
+                historyList.innerHTML = '<div class="no-data">まだ記録がありません</div>';
+                return;
+            }
+
+            historyList.innerHTML = '';
+
+            history.forEach(session => {
+                const date = new Date(session.date);
+                const dateStr = `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                
+                let tasksHtml = '';
+                session.tasks.forEach(task => {
+                    const minutes = Math.floor(task.actualSeconds / 60);
+                    const seconds = task.actualSeconds % 60;
+                    const isOvertime = task.actualSeconds > task.targetMinutes * 60;
+                    
+                    tasksHtml += `
+                        <div class="history-task">
+                            <span class="task-name">${task.name}</span>
+                            <span class="task-time ${isOvertime ? 'overtime' : ''}">
+                                ${minutes}:${String(seconds).padStart(2, '0')} 
+                                (目標: ${task.targetMinutes}分)
+                            </span>
+                        </div>
+                    `;
+                });
+
+                div.innerHTML = `
+                    <div class="history-date">${dateStr}</div>
+                    <div class="history-tasks">${tasksHtml}</div>
+                `;
+                
+                historyList.appendChild(div);
+            });
+        }
+
+        // 統計を表示
+        function renderStats() {
+            const statsContent = document.getElementById('stats-content');
+            const history = JSON.parse(localStorage.getItem('history') || '[]');
+
+            if (history.length === 0) {
+                statsContent.innerHTML = '<div class="no-data">まだ統計データがありません</div>';
+                return;
+            }
+
+            // タスク別にデータを集計
+            const taskStats = {};
+
+            history.forEach(session => {
+                session.tasks.forEach(task => {
+                    if (!taskStats[task.name]) {
+                        taskStats[task.name] = {
+                            times: [],
+                            targetMinutes: task.targetMinutes
+                        };
+                    }
+                    taskStats[task.name].times.push(task.actualSeconds);
+                });
+            });
+
+            // 統計テーブルを作成
+            let tableHtml = `
+                <table class="stats-table">
+                    <thead>
+                        <tr>
+                            <th>タスク名</th>
+                            <th>目標</th>
+                            <th>最小</th>
+                            <th>最大</th>
+                            <th>平均</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            Object.keys(taskStats).forEach(taskName => {
+                const data = taskStats[taskName];
+                const times = data.times;
+                
+                const min = Math.min(...times);
+                const max = Math.max(...times);
+                const avg = times.reduce((a, b) => a + b, 0) / times.length;
+
+                const formatTime = (seconds) => {
+                    const m = Math.floor(seconds / 60);
+                    const s = Math.floor(seconds % 60);
+                    return `${m}:${String(s).padStart(2, '0')}`;
+                };
+
+                tableHtml += `
+                    <tr>
+                        <td><strong>${taskName}</strong></td>
+                        <td>${data.targetMinutes}分</td>
+                        <td>${formatTime(min)}</td>
+                        <td>${formatTime(max)}</td>
+                        <td>${formatTime(avg)}</td>
+                    </tr>
+                `;
+            });
+
+            tableHtml += `
+                    </tbody>
+                </table>
+            `;
+
+            statsContent.innerHTML = tableHtml;
+        }
+
+        // ページ読み込み時に初期化
+        window.onload = function() {
+            init();
+            updateRunSection();
+        };
+    </script>
+</body>
+</html>
